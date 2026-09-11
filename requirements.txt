@@ -1,0 +1,17 @@
+# PaddlePaddle and PaddleOCR dependencies
+# Note: paddlepaddle 2.6.x requires numpy < 2.0.0
+numpy>=1.24.0,<2.0.0
+paddlepaddle>=2.6.0,<2.7.0
+paddleocr>=2.7.3
+
+# PDF Processing and Image handling
+PyMuPDF>=1.23.0
+Pillow>=10.0.0
+opencv-python>=4.8.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# AI Extraction (Phase 2)
+openai>=1.0.0
+pydantic>=2.0.0

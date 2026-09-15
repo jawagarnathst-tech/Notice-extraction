@@ -13,6 +13,9 @@ try:
 except ImportError:
     pass
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="paddle.*")
+
 from src.ai_extraction_service import AIExtractionService
 from src.file_service import is_pdf, validate_input_file
 from src.layout_service import LayoutConfig

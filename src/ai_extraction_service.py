@@ -241,6 +241,7 @@ General aggregation rules:
 - If no category total exists, sum the complete, distinct line items for that category across the notice.
 - Never add a summary total to its underlying detail rows.
 - Never count an amount twice because it appears on multiple pages or in both narrative and table form.
+- IMPORTANT: If two rows have identical amounts but correspond to DIFFERENT tax types, programs, or labels (e.g. "Unemployment Insurance Tax" vs "Paid Leave Oregon"), they are NOT duplicates. You MUST sum both of them.
 - Do not add a per-item penalty rate to the assessed penalty total.
 - Do not split a combined Interest/Penalty amount unless separate values are provided elsewhere in the notice.
 - Do not derive a missing category by subtracting other amounts from an overall balance.
@@ -292,7 +293,7 @@ Return exactly:
 class AIExtractionService:
     """Service responsible for extracting structured business fields via OpenAI API."""
 
-    def __init__(self, model: str = "gpt-4o-mini") -> None:
+    def __init__(self, model: str = "gpt-4o") -> None:
         """
         Initialize OpenAI client using API key from .env / environment.
 

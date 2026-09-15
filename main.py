@@ -62,7 +62,7 @@ def run_pipeline(
     layout_config: Optional[LayoutConfig] = None,
     print_coordinates: bool = False,
     run_ai: bool = True,
-    ai_model: str = "gpt-4o-mini",
+    ai_model: str = "gpt-4o",
 ) -> Tuple[DocumentOCRResult, Optional[NoticeExtractionResult]]:
     """
     Executes Phase 1 (OCR & Layout Reconstruction) and Phase 2 (OpenAI Field Extraction).
@@ -203,8 +203,8 @@ def main() -> None:
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4o-mini",
-        help="OpenAI model for structured field extraction (default: 'gpt-4o-mini').",
+        default="gpt-4o",
+        help="OpenAI model for structured field extraction (default: 'gpt-4o').",
     )
     parser.add_argument(
         "-v",

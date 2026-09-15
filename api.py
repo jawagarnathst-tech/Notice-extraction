@@ -55,7 +55,7 @@ async def extract_notice(file: UploadFile = File(...)) -> Dict[str, Any]:
             print_coordinates=False,
             lang="en",
             run_ai=True,
-            ai_model=os.getenv("AI_MODEL", "gpt-4o-mini"),
+            ai_model=os.getenv("AI_MODEL", "gpt-4o"),
         )
 
         if not ai_result:

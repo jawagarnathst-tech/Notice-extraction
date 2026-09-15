@@ -2,7 +2,7 @@
 # Note: paddlepaddle 2.6.x requires numpy < 2.0.0
 numpy>=1.24.0,<2.0.0
 paddlepaddle>=2.6.0,<2.7.0
-paddleocr>=2.7.3
+paddleocr>=2.7.3,<3.0.0
 
 # PDF Processing and Image handling
 PyMuPDF>=1.23.0

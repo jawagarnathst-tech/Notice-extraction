@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 from typing import Dict, Any
@@ -54,7 +55,7 @@ async def extract_notice(file: UploadFile = File(...)) -> Dict[str, Any]:
             print_coordinates=False,
             lang="en",
             run_ai=True,
-            ai_model="gpt-4o-mini",
+            ai_model=os.getenv("AI_MODEL", "gpt-4o-mini"),
         )
 
         if not ai_result:
@@ -69,7 +70,7 @@ async def extract_notice(file: UploadFile = File(...)) -> Dict[str, Any]:
                 "total_lines": doc_result.total_lines,
                 "average_confidence": doc_result.average_confidence,
             },
-            "extracted_data": ai_result.model_dump(),
+            "extracted_data": ai_result.to_strict_dict(),
         }
 
         return response

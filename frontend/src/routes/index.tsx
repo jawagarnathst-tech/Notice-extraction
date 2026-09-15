@@ -15,17 +15,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE || `http://${window.location.hostname}:8000`;
 
 interface ExtractedData {
-  account?: string;
-  country?: string;
-  agency?: string;
-  agency_type?: string;
-  department?: string;
-  classification?: string;
-  notice_type?: string;
-  [key: string]: string | undefined;
+  account?: string | null;
+  country?: string | null;
+  agency?: string | null;
+  agency_type?: string | null;
+  department?: string | null;
+  classification?: string | null;
+  notice_type?: string | null;
+  tax_period?: string | null;
+  tax_year?: string | null;
+  agency_id_to_use?: string | null;
+  amount_type?: string | null;
+  issue_date?: string | null;
+  credit_amount?: number | null;
+  tax_amount?: number | null;
+  penalty_amount?: number | null;
+  interest_amount?: number | null;
+  [key: string]: string | number | null | undefined;
 }
 
 interface ExtractionResult {
@@ -134,21 +143,13 @@ function Index() {
   const downloadOutput = () => {
     if (!isComplete || !result) return;
     const data = result.extracted_data;
-    const lines = [
-      `Notice Extraction`,
-      `Source: ${result.document.file_name}`,
-      `Pages: ${result.document.total_pages} | Lines: ${result.document.total_lines} | Confidence: ${(result.document.average_confidence * 100).toFixed(1)}%`,
-      ``,
-      `Extracted Fields:`,
-      ...Object.entries(data)
-        .filter(([, v]) => v)
-        .map(([k, v]) => `  ${k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}: ${v}`),
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const jsonString = JSON.stringify(data, null, 2);
+    
+    const blob = new Blob([jsonString], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${result.document.file_name.replace(/\.[^.]+$/, "")}_extracted.txt`;
+    link.download = `${result.document.file_name.replace(/\.[^.]+$/, "")}_extracted.json`;
     link.click();
     URL.revokeObjectURL(url);
   };

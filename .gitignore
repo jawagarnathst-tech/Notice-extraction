@@ -33,3 +33,5 @@ frontend/dist-ssr/
 frontend/build/
 frontend/.env*
 frontend/.bun/
+frontend/.output/
+frontend/.wrangler/

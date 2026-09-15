@@ -62,7 +62,9 @@ class OutputService:
         print(f"Agency Type   : {fields.agency_type}")
         print(f"Department    : {fields.department}")
         print(f"Classification: {fields.classification}")
-        print(f"Notice Type   : {fields.notice_type}\n")
+        print(f"Notice Type   : {fields.notice_type}")
+        print(f"Notice Manager: {fields.notice_manager}")
+        print(f"Total Amount  : {fields.total_amount}\n")
         print("Structured extraction completed successfully.\n")
         print(f"Saved:\noutput/{base_name}_extracted_fields.json\n")
 

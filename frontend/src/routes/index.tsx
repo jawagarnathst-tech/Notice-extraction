@@ -28,12 +28,14 @@ interface ExtractedData {
   tax_period?: string | null;
   tax_year?: string | null;
   agency_id_to_use?: string | null;
+  notice_manager?: string | null;
   amount_type?: string | null;
   issue_date?: string | null;
   credit_amount?: number | null;
   tax_amount?: number | null;
   penalty_amount?: number | null;
   interest_amount?: number | null;
+  total_amount?: number | null;
   [key: string]: string | number | null | undefined;
 }
 

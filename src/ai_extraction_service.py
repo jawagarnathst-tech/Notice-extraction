@@ -6,8 +6,12 @@ from pydantic import ValidationError
 
 from src.config import get_openai_api_key
 from src.models import NoticeExtractionResult
+from src.excel_mapping import load_mappings
 
 logger = logging.getLogger(__name__)
+
+_, ALLOWED_NOTICE_TYPES = load_mappings()
+ALLOWED_VALUES_STR = "\n".join([f'- "{val}"' for val in sorted(ALLOWED_NOTICE_TYPES)])
 
 SYSTEM_PROMPT = """You are a document information extraction engine.
 
@@ -58,8 +62,8 @@ Return null if the authority type cannot be confidently determined.
 - Do not invent a department name when only a division or office is identified.
 
 6. classification
-Extract the document's primary notice classification — the main notice title, notice category,
-assessment type, determination type, or primary purpose of the letter.
+Extract the document's primary notice classification — the BROAD category that describes
+the main purpose of the notice.
 
 The classification may appear anywhere in the document and its position may vary between agencies.
 It may appear at the top of the page, in the center, below the agency header, near the recipient
@@ -70,79 +74,19 @@ Do NOT rely on fixed coordinates, fixed page regions, fixed labels, fixed line n
 or any specific position such as top, center, left, or right.
 
 Analyze the complete OCR text and available layout information.
-Identify ALL possible notice-title candidates, compare them, and select the most specific phrase
-that represents the actual primary purpose/type of the notice.
+6. classification
+Determine the most appropriate Specific Notice Type from the allowed list below.
+You MUST pick from these exact values, or the downstream system will fail to look up the Notice Manager.
 
-Determine the category from the notice title and primary purpose, using the following mappings.
-
-"Missing Return":
-- Non filer overdue.
-- Insufficient wages or insufficient wage reports.
-- No wages filed.
-- Quarterly wages not submitted.
-- Delinquent returns.
-- Quarterly wages missing.
-- Missing reports or filings.
-- No wage reports received.
-- Failure to file.
-- Failed to submit required forms.
-- Missing W-2 forms or wage and tax statements.
-- Missing annual reconciliation.
-- Notice of Delinquent/Insufficient Wage Report.
-
-"Credit Balance":
-- An overall credit balance.
-- An available credit or overpayment.
-- A negative or parenthesized balance clearly identified as credit.
-
-"Escalation Notice":
-- Lien.
-- Levy.
-- Collection or collection action.
-- Judgment.
-- Subpoena.
-- Third party levy.
-- Lien release.
-
-"Closed Account":
-- Account terminated.
-- Account inactivated.
-- Account closed.
-- Account suspended.
-
-"Amount Due":
-- Amount due.
-- Past due.
-- Assessment.
-- Balance due.
-- Statement of account showing an amount owed.
-- Account summary showing an amount owed.
-- Billing statement.
-- Determination of assessment.
-
-"Rate Change":
-- Contribution rates.
-- Rate change.
-- Rate determination.
-- A notice establishing contribution rates.
+Allowed values:
+{ALLOWED_VALUES_STR}
 
 Classification rules:
+- EXCEPTION: If the document contains a clear, prominent label, specific tax type, or notice title (e.g., "Withholding Wage Tax", "Sales Tax Notice", etc.), you MUST extract that exact phrase as the classification INSTEAD of picking from the allowed list above. This overrides the strict list requirement.
 - Interpret keywords in context rather than matching isolated words.
-- Use the notice's actual purpose, not generic instructions, quoted prior notices, or possible future actions.
-- A notice primarily concerning failure to submit required filings remains "Missing Return" even when it assesses a filing penalty.
-- Example: "FAILURE TO FILE W-2'S PENALTY" is "Missing Return".
-- An actual collection, lien, or levy notice is "Escalation Notice", even when missing filings caused the debt.
-- A warning that collection could happen later does not make a notice an "Escalation Notice".
-- A Statement of Account identifying an overall available credit is "Credit Balance".
-- A past-due notice containing a credit adjustment remains "Amount Due" when its overall purpose is collecting an amount owed.
-- A rate notice mentioning a reserve balance remains "Rate Change".
-- The selected value should best answer: "What type of notice did the recipient receive?"
-- Do NOT simply select the first heading found. If multiple possible headings exist, compare them and choose the most specific one.
-- Multiple Heading Rule — always prefer the more specific heading (e.g. "Final Notice Before Legal Action" is preferred over "BILLING STATEMENT").
-
-IMMEDIATE BILL Rule:
-"IMMEDIATE BILL" is a coupon-type or document-type label. It is NOT the notice classification.
-When a document contains "IMMEDIATE BILL" alongside "Amount Due", the correct classification is "Amount Due".
+- A notice primarily concerning failure to submit required filings is "Filing / Return - Missing Filing/Return".
+- Example: "FAILURE TO FILE W-2'S PENALTY" → classification = "Filing / Return - Missing Filing/Return".
+- An actual collection,- A Statement of Account identifying an overall available credit is "Credit/Overpayment - Balance".
 
 Important — the correct classification does NOT have to contain the word "Notice".
 Do NOT select generic, supporting, informational, table, payment, or section headings when a more specific notice classification exists (e.g. do not select Payment Options, Billing Details, Questions, Statement of Collection Voucher, etc.).
@@ -183,8 +127,7 @@ Final Validation — before returning, internally verify all of the following:
 10. Is notice_type exactly equal to classification?
 
 7. notice_type
-Must always equal classification exactly.
-Do NOT independently extract or infer notice_type.
+Use the exact same string selected for classification.
 Always apply: notice_type = classification
 If classification is null, return null.
 
@@ -277,10 +220,25 @@ Other rules:
 - If extracting a notice-wide tax total, use the corresponding notice-wide interest total when provided.
 - Do not extract an interest rate or calculate future interest.
 
-AMOUNT AGGREGATION
+AMOUNT AGGREGATION — MULTI-PERIOD RULE
+When a notice contains amounts across MULTIPLE tax years, quarters, or filing periods,
+you MUST sum ALL line items for each category across ALL periods into a single total.
+
+Example (Collection Balance Breakdown with 4 period rows):
+  2025 Q4 UI Tax:     Tax $100.00, Penalty $10.00, Interest $9.00
+  2025 Q4 Paid Leave: Tax $100.00, Penalty $10.00, Interest $9.00
+  2025 Q3 row 1:      Tax $118.44, Penalty $0,     Interest $10.68
+  2025 Q3 row 2:      Tax $144.25, Penalty $0,     Interest $12.96
+  Result: tax_amount = 462.69, penalty_amount = 20.00, interest_amount = 41.64
+
+General aggregation rules:
+- Sum ALL tax line items across ALL periods into ONE tax_amount.
+- Sum ALL penalty line items across ALL periods into ONE penalty_amount.
+- Sum ALL interest line items across ALL periods into ONE interest_amount.
+- Sum ALL credit line items across ALL periods into ONE credit_amount.
+- Aggregate taxes, penalties, interest, and credits separately.
 - Use an explicit category total when it covers the relevant charges and periods.
 - If no category total exists, sum the complete, distinct line items for that category across the notice.
-- Aggregate taxes, penalties, interest, and credits separately.
 - Never add a summary total to its underlying detail rows.
 - Never count an amount twice because it appears on multiple pages or in both narrative and table form.
 - Do not add a per-item penalty rate to the assessed penalty total.
@@ -303,6 +261,7 @@ OUTPUT REQUIREMENTS
 - Do not extract contribution percentages, taxable wage limits, login identifiers, or access codes into monetary fields.
 - Do not add rates, other amounts, overall totals, confidence scores, evidence, or any additional fields.
 - Include all 16 required keys exactly as specified.
+- Do NOT include notice_manager or total_amount — those are computed server-side.
 - Return valid JSON only, without Markdown, comments, or explanation.
 
 If any required field except country is not clearly supported by the document, return null.
@@ -327,7 +286,7 @@ Return exactly:
   "penalty_amount": null,
   "interest_amount": null
 }
-"""
+""".replace("{ALLOWED_VALUES_STR}", ALLOWED_VALUES_STR)
 
 
 class AIExtractionService:
@@ -387,7 +346,6 @@ class AIExtractionService:
 
             # Enforce application-side safety overrides
             validated_result.country = "United States of America"
-            validated_result.notice_type = validated_result.classification
 
             if validated_result.agency_type not in ("Department", "City", "Local"):
                 validated_result.agency_type = None

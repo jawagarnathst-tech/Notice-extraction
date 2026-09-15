@@ -345,15 +345,11 @@ function Index() {
                         {(result.document.average_confidence * 100).toFixed(1)}% confidence
                       </div>
                     )}
-                    {Object.entries(result.extracted_data)
-                      .filter(([, v]) => v)
-                      .map(([key, value]) => (
-                        <OutputField
-                          key={key}
-                          label={key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                          value={value ?? ""}
-                        />
-                      ))}
+                    <div className="rounded-xl border border-border bg-muted/20 p-4 overflow-auto max-h-[500px]">
+                      <pre className="text-sm text-foreground/80 font-mono whitespace-pre-wrap">
+                        {JSON.stringify(result.extracted_data, null, 2)}
+                      </pre>
+                    </div>
                   </div>
                 )
               )}
@@ -391,21 +387,7 @@ function Index() {
   );
 }
 
-function OutputField({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-xl border border-border bg-muted/35 p-4">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-emerald-500/15 text-emerald-600">
-          <Check className="size-4" />
-        </div>
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
-          <p className="mt-0.5 text-sm font-medium leading-relaxed">{value}</p>
-        </div>
-      </div>
-    </article>
-  );
-}
+
 
 function ProgressStage({
   label,

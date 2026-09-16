@@ -1,0 +1,49 @@
+Classification,Notice Type,Notice Manager,Tax Period,Amount,Description,Comments,Comment
+Account,Account - Change/Adjustment,Tier 3,Quarterly,No,-,,
+Account,Account - Access/Authorization,Tier 2,Annual,No,-,"Based on End Date and Approvals or authorization
+Authorized mean Tier 1
+Denial Tier 2 (Active Clients)
+Deniel Tier1( Termed Client)
+Denial with Amount Tier 3 Tax Period should be Tax Period",
+Registration,Registration - Confirmation,Tier 1,Annual,No,-,,
+Account,Account - Summary,Tier 3,Quarterly,Yes,-,,
+Agency Communication,Agency Communication - Agency Response,Tier 2,Annual,No,-,,
+Agency Communication,Agency Communication - Action Required,Tier 2,Quarterly,No,-,,
+Audit,Audit - Notification,Tier 2,Quarterly,No,-,,
+Account,Account - Access/Authorization,Tier 1,Annual,No,-,,
+Account,Account - Business License / Permit,Client Responsibility,-,-,-,,
+Filing / Return,Filing / Return - Change/Adjustment,Tier 2,Quarterly,-,-,,
+Account,Account - Closed Account,Tier 1,Annual,No,-,,
+Filing / Return,Filing / Return - Error,Tier 3,Quarterly,Yes,-,,
+Filing / Return,Filing / Return - Error,Tier 4,Quarterly,No,-,,
+Filing / Return,Filing / Return - Missing Filing/Return,Tier 2,Quarterly,No,-,,
+Deposit,Deposit - Error,Tier 3,Quarterly,Yes,-,,
+Deposit,Deposit - Error,Jennifer bartnett,Quarterly,-,-,,
+Other,Other,Debra/Lynn/Jennifer,Quarterly/Annual,Yes,-,,
+Credit/Overpayment,Credit/Overpayment - Balance,Tier 4,Quarterly,Yes,-,,
+Amount Due,Amount Due,Tier 3,Quarterly,Yes,-,,
+Amount Due,Amount Due - Assessment,Tier 3,Quarterly,Yes,-,,
+Escalation,Escalation - Collection/Levy/Lien,Tier 4,Quarterly,Yes,Only NJ Notice Description Must,,
+Rate,Rate - Change,Based on Scenario ,,,-,Human Intervention required - Based on scenarios,
+Claim,Claim - Filed,Debra Durbin,Quarterly,No,If created in TriNet Name,,
+Agency Communication,Agency Communication - Informational,Tier 1,Annual,No,-,,
+Amount Due,Amount Due - Balance Due,Tier 3,Quarterly,Yes,-,,
+Audit,Audit - Response,Tier 2,Quarterly/Annual,No,Audit,,
+Credit/Overpayment,Credit/Overpayment - Offset,Tier 4,Quarterly,Yes,-,,
+Other,Non-Unemployment,Client Responsibility,Quarterly,Yes,-,,
+Other,Other,Client Responsibility,Quarterly,Yes,-,,
+Rate,"Rate - Account Number PEO Rate KS,ME,TN",Based on Scenario ,-,-,-,"Trinet Name - Tracy Smith, Client Name - Data Integrity ",
+Rate,Rate - Account Number with Rate,Tier 1,Annual,No,-,,
+Refund,Refund - Refund Check,Client Reporting,Quarterly,Yes,To Be Researched,,
+Refund,Refund - Refund Offset,Tier 4,Quarterly,Yes,-,,
+Registration,Registration - Missing Registration,Tier 2,Annual,-,-,,
+Registration,Registration - Registration Issue,Tier 2,Annual,-,-,,
+Vendor,Vendor - Communication,Sarah Boerner,Quarterly,No,-,,
+Account,Account - POA,Jack wilkinson,Annual,No,-,,Rejected POA (client is Active)
+Account,Account - summary,Jack wilkinson,Quarterly,No,-,,CDTFA CA Environmental fee
+Agency communication,Agency communication - Action reqired,Jack wilkinson,Annual,No,-,,Non - liable account determiation letters
+Agency communication,Agency communication - informational,Jack wilkinson,Annual,No,-,,Non - liable account determiation letters
+Agency communication,Agency communication - Action reqired,Jack wilkinson,Annual,No,-,,Specific notice (you have been advised) WI
+Registration,Registration confirmation,Jack wilkinson,Annual,No,-,,Non - liable account determiation letters
+,,,,,,,
+,,,,,,,

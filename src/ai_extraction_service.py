@@ -65,28 +65,176 @@ Return null if the authority type cannot be confidently determined.
 Extract the document's primary notice classification — the BROAD category that describes
 the main purpose of the notice.
 
-The classification may appear anywhere in the document and its position may vary between agencies.
-It may appear at the top of the page, in the center, below the agency header, near the recipient
-information, inside a box, near an amount, before the main body text, between other sections,
-or in another prominent location on the first/main page.
+7. notice_type
+Extract the specific mapped notice type within that classification.
 
+Classification and Notice Type are TWO DIFFERENT FIELDS:
+- classification is the broad notice category.
+- notice_type is the specific mapped type within that classification.
+
+Never set notice_type equal to classification automatically.
+Never return the raw document title as classification unless it exactly matches an allowed Classification value.
+Classification and Notice Type must be selected together as ONE valid pair from the Notice Mapping data.
+You MUST pick notice_type from these exact values, or the downstream system will fail to look up the Notice Manager.
+
+Allowed classifications:
+- Account
+- Agency Communication
+- Amount Due
+- Audit
+- Claim
+- Credit/Overpayment
+- Deposit
+- Escalation
+- Filing / Return
+- Other
+- Rate
+- Refund
+- Registration
+- Vendor
+
+Allowed notice types:
+{ALLOWED_VALUES_STR}
+
+The classification and notice type may appear anywhere in the document and their position may vary between agencies.
 Do NOT rely on fixed coordinates, fixed page regions, fixed labels, fixed line numbers,
 or any specific position such as top, center, left, or right.
 
 Analyze the complete OCR text and available layout information.
-6. classification
-Determine the most appropriate Specific Notice Type from the allowed list below.
-You MUST pick from these exact values, or the downstream system will fail to look up the Notice Manager.
+Use the complete first substantive page, including:
+- Notice title
+- Subject
+- Standalone headings
+- Narrative explaining the purpose
+- Tables
+- Amount descriptions
+- Account status language
 
-Allowed values:
-{ALLOWED_VALUES_STR}
+Give priority to a clear first-page notice title.
+Do not allow a later-page heading or a future-action warning to replace the primary notice type.
 
-Classification rules:
-- EXCEPTION: If the document contains a clear, prominent label, specific tax type, or notice title (e.g., "Withholding Wage Tax", "Sales Tax Notice", etc.), you MUST extract that exact phrase as the classification INSTEAD of picking from the allowed list above. This overrides the strict list requirement.
-- Interpret keywords in context rather than matching isolated words.
-- A notice primarily concerning failure to submit required filings is "Filing / Return - Missing Filing/Return".
-- Example: "FAILURE TO FILE W-2'S PENALTY" → classification = "Filing / Return - Missing Filing/Return".
-- An actual collection,- A Statement of Account identifying an overall available credit is "Credit/Overpayment - Balance".
+Use the following keyword mapping to select the classification/notice_type pair. Use keywords in context — a keyword describing a possible future action, an older notice, payment instructions, or a supporting section must not control the mapping.
+
+1. Missing Filing or Return
+Evidence includes:
+- Non-filer overdue
+- Insufficient wages
+- No wages filed
+- Quarterly wages not submitted
+- Delinquent return
+- Quarterly wages missing
+- Missing reports
+- Missing filings
+- No wage reports received
+- Delinquent Wage Report
+- Insufficient Wage Report
+- Failure to file
+Return:
+- classification: "Filing / Return"
+- notice_type: "Filing / Return - Missing Filing/Return"
+
+2. Credit Balance
+Evidence includes:
+- Credit Balance
+- Available credit
+- Credit amount
+- Overpayment
+- A negative balance explicitly identified as a credit
+- A credit amount displayed using a minus sign or parentheses
+Return:
+- classification: "Credit/Overpayment"
+- notice_type: "Credit/Overpayment - Balance"
+A document titled "Statement of Account" must still be classified as a Credit/Overpayment notice when its primary purpose is to report an available credit.
+
+3. Escalation
+Evidence includes a current collection action such as:
+- Notice of Collections
+- Collection
+- Lien
+- Levy
+- Judgment
+- Subpoena
+- Collection Action
+- Third-Party Levy
+- Lien Release
+Return:
+- classification: "Escalation"
+- notice_type: "Escalation - Collection/Levy/Lien"
+Do not select Escalation when collection or lien language only describes a possible future consequence.
+
+4. Closed Account
+Evidence includes:
+- Account closed
+- Account terminated
+- Account inactivated
+- Account suspended
+- Your account has been closed
+- Your account has been terminated
+Return:
+- classification: "Account"
+- notice_type: "Account - Closed Account"
+
+5. Assessment
+Evidence includes a primary title or purpose such as:
+- Determination of Assessment
+- Notice of Assessment
+- Assessment Due
+- Tax Assessment
+Return:
+- classification: "Amount Due"
+- notice_type: "Amount Due - Assessment"
+The assessment language must describe the current notice. Do not use an earlier assessment mentioned in the history of a collection notice.
+
+6. Amount Due
+Evidence includes:
+- Amount Due
+- Amounts Past Due
+- Past Due
+- Payment Required
+- Payment Coupon
+- Billing Statement
+- Training Tax Due
+- Overdue Amount
+Return:
+- classification: "Amount Due"
+- notice_type: "Amount Due"
+If "Balance Due" is the primary notice title or specific purpose, return:
+- classification: "Amount Due"
+- notice_type: "Amount Due - Balance Due"
+
+7. Account Summary
+Evidence includes:
+- Account Summary
+- Statement of Account
+- Account Statement
+Return:
+- classification: "Account"
+- notice_type: "Account - Summary"
+Do not use Account Summary when the primary purpose is an available credit, assessment, collection action, or direct payment demand.
+
+8. Registration Confirmation
+Evidence includes:
+- Account Registration
+- Registration Confirmation
+- Employer Tax Account Registration Confirmation
+- Employer account has been established
+- Assigned an account number
+- Business Registration
+- Account reinstated or reactivated
+Return:
+- classification: "Registration"
+- notice_type: "Registration - Confirmation"
+
+KEYWORD PRIORITY
+When several keywords appear, use this order:
+1. Current lien, levy, or collection action
+2. Registration confirmation
+3. Closed or inactivated account
+4. Missing filing or missing return
+5. Assessment
+6. Credit or overpayment
+7. Account summary
+8. General amount due or payment required
 
 Important — the correct classification does NOT have to contain the word "Notice".
 Do NOT select generic, supporting, informational, table, payment, or section headings when a more specific notice classification exists (e.g. do not select Payment Options, Billing Details, Questions, Statement of Collection Voucher, etc.).
@@ -124,42 +272,63 @@ Final Validation — before returning, internally verify all of the following:
 7. Did you accidentally select a payment label, amount field, table header, account field, or instruction heading?
 8. Is the selected classification explicitly supported by the OCR text?
 9. Did you avoid creating a classification from general body text?
-10. Is notice_type exactly equal to classification?
-
-7. notice_type
-Use the exact same string selected for classification.
-Always apply: notice_type = classification
-If classification is null, return null.
+10. Is the selected classification/notice_type pair present in the allowed values above?
+11. Did you avoid setting notice_type equal to classification automatically?
+12. Did you respect the Keyword Priority order?
+If classification is null, return null for notice_type as well.
 
 8. tax_period
-- Extract the tax, reporting, filing, or effective period addressed by the notice.
-- Read the narrative, tables, headings, and continuation pages.
-- Return a string containing the year with each period.
-- Normalize clearly identified quarters and annual periods:
-  "Q4-2024" → "2024 Q4"
-  "Quarter 3 2025" → "2025 Q3"
-  "2023/3" under a Quarter heading → "2023 Q3"
-  "09-30-2024" under a Quarter heading → "2024 Q3"
-- Interpret a date as a quarter only when its label or context identifies it as a quarterly period.
-- A full calendar-year period, such as January 1 through December 31, 2024, becomes "2024 Annual".
-- When a stated reporting year is connected to an annual filing or Annual Reconciliation, return "<year> Annual".
-- Preserve an explicitly stated monthly period or nonstandard date range without forcing it into a quarter or annual period.
-- For multiple periods, return all distinct periods chronologically, separated by "; " (Example: "2023 Q3; 2023 Q4").
-- Keep each period paired with its year.
+Apply the following order:
 
-Closed Account reference convention:
-- If no reporting period is stated, use the clearly identified closure or inactivation effective year with "Annual".
-- Do not infer a quarter from the closure date.
-- If the effective date or year is unreadable, return null.
+1. Explicit Period
+If the notice explicitly states a tax, filing, reporting, contribution, or assessment period, extract it.
+- Read the narrative, tables, headings, and continuation pages.
+- Return ONLY the period identifier, WITHOUT the year.
+- Normalize clearly identified quarters and annual periods:
+  "Q4-2024" → "Q4"
+  "Quarter 3 2025" → "Q3"
+  "2023/3" under a Quarter heading → "Q3"
+  "09/30/2024" identified as a quarter ending date → "Q3"
+- Interpret a date as a quarter only when its label or context identifies it as a quarterly period.
+- A full calendar-year period, such as January 1 through December 31, 2024, becomes "Annual".
+- When a stated reporting year is connected to an annual filing or Annual Reconciliation, return "Annual".
+- Preserve an explicitly stated monthly period or nonstandard date range without forcing it into a quarter or annual period.
+- For multiple periods, return all distinct periods chronologically, separated by "; " (Example: "Q3; Q4; Q1").
+- Return the year for the periods in tax_year, never in tax_period.
+
+2. Effective-Date Exceptions
+- For a Closed Account notice, when no reporting period exists, use the closure, termination, suspension, or inactivation effective year. Return "Annual":
+  03/31/2024 → "Annual"
+- For a Registration Confirmation notice, when the selected Excel mapping identifies the notice as Annual, return:
+  09/01/2026 → "Annual"
+- Do not infer a quarter from such effective dates.
+
+3. Previous-Quarter Fallback
+If the notice does NOT mention any tax, filing, reporting, contribution, or assessment quarter/year/period ANYWHERE, and no applicable effective date exists, you MUST derive the Tax Period from the Issue Date instead of returning null. Derive the immediately preceding calendar quarter:
+- Issue Date in January–March → previous year Q4
+- Issue Date in April–June → same year Q1
+- Issue Date in July–September → same year Q2
+- Issue Date in October–December → same year Q3
+Examples:
+- Issue Date 2023-11-20 → tax_period "Q3" (of year 2023)
+- Issue Date 2025-02-10 → tax_period "Q4" (of year 2024)
+- Issue Date 2026-08-06 → tax_period "Q2" (of year 2026)
+When populating via this fallback, tax_year MUST be the year of the derived quarter (Example: Issue Date 2023-11-20 → tax_year "2023").
+Do not use a payment deadline, received stamp, statute date, or prior-notice date as the Issue Date for the fallback.
 
 Other rules:
 - If only a reporting year is identifiable and the period or frequency is unsupported, return null for tax_period.
-- Do not use the notice issue date, received date, payment deadline, or year in a statute citation as the tax period.
+- Do not use the notice issue date, received date, payment deadline, or year in a statute citation as the tax period except as described in the Previous-Quarter Fallback.
 
 9. tax_year
-- Extract the reporting or effective year associated with the tax obligation or period addressed by the notice.
-- Return a string, such as "2025".
-- For multiple years, return distinct years chronologically, separated by "; ".
+- Extract the reporting or effective year(s) associated with the periods identified for tax_period, and return them in tax_year.
+- The year belongs in tax_year, never in tax_period.
+- Return each distinct year only ONCE, irrespective of how many quarters or periods in the notice share that year.
+  - Example: "2023; 2023; 2024; 2024; 2025" → "2023; 2024; 2025"
+  - Example: five quarters in 2024 → "2024"
+- Period "Q3" from 2025 → tax_year "2025"
+- Annual period in 2024 → tax_year "2024"
+- Quarters "Q4; Q1" from years 2023 and 2024 → tax_year "2023; 2024"
 - Populate tax_year when the reporting year is clear, even if tax_period cannot be determined.
 - Do not use the issue year, a statute year, or a response deadline as a substitute for the reporting year.
 
@@ -196,11 +365,15 @@ Other rules:
 - Do not count the same credit again when repeated in the narrative, detail table, and summary.
 
 14. tax_amount
-- Extract the stated tax or contribution amount.
-- Follow these reference mappings: Tax → tax_amount, Contribution → tax_amount, Total Contributory → tax_amount, New Charges → tax_amount.
-- For the assessment layout represented in the reference, use New Charges even when its footnote includes tax principal, penalties, or other assessment components.
-- Do not attempt to split that combined New Charges amount.
-- Do not substitute Outstanding, Total Account Balance, or an overall balance containing interest and penalties.
+Extract the stated tax or contribution amount using the following priority:
+1. Extract an explicitly stated category total when labeled: Tax, Contribution, Total Contributory, Employer Contribution, Employee Withholding, New Charges, Current Tax Assessed.
+2. When several tax or contribution lines cover different periods, programs, or tax types, add all distinct tax lines.
+3. Prefer a complete category total over its underlying details. Never add both the total and its detail lines.
+4. If no tax or contribution amount is separately identified anywhere in the notice, use the primary amount demanded or referenced by the notice as tax_amount. Eligible fallback labels include: Amount Due, Account Balance, Balance Due, Current Amount Assessed, Outstanding Amount, Amount You Owe. Use this fallback only when it represents the notice's main payable or assessed amount.
+5. Do not use a separately labeled credit, penalty, or interest amount as tax_amount.
+6. Return monetary values as JSON numbers without currency symbols or commas. Convert parentheses to a negative number.
+- A "category total" covering the ENTIRE tax/contribution category counts as a complete total. Do NOT treat a single sub-category (e.g. "EMPLOYER CONTRIBUTIONS") as the complete tax amount when the notice also lists other tax sub-categories (e.g. "EMPLOYEE WITHHOLDING"). When the notice separates the tax category into multiple sub-categories or programs, SUM ALL of them.
+  - Example: EMPLOYEE WITHHOLDING $52.32 + EMPLOYER CONTRIBUTIONS $1,321.63 → tax_amount = 1373.95.
 - Do not treat mentions of "tax", "withholding", or "wage and tax statements" as evidence of a monetary tax amount.
 - Do not copy a separately assessed penalty into tax_amount.
 
@@ -218,6 +391,8 @@ Other rules:
 - If extracting New Charges for a specific assessment period, use the corresponding interest for those charges.
 - Do not replace that amount with interest on an entire historical account balance.
 - If extracting a notice-wide tax total, use the corresponding notice-wide interest total when provided.
+- When interest is split across tax types, programs, or categories, SUM ALL distinct interest line items.
+  - Example: INTEREST EMPLOYEE WITHHOLDING $2.66 + INTEREST EMPLOYER CONTRIBUTIONS $66.88 → interest_amount = 69.54.
 - Do not extract an interest rate or calculate future interest.
 
 AMOUNT AGGREGATION — MULTI-PERIOD RULE
@@ -248,6 +423,11 @@ General aggregation rules:
 - If a complete category amount cannot be determined, return null rather than an incomplete total.
 - Use exact decimal arithmetic when summing monetary amounts.
 
+FINAL AMOUNT CROSS-CHECK
+- Before returning, recompute tax_amount + penalty_amount + interest_amount - credit_amount and compare it against any explicit notice total, balance, or total due.
+- If the values do not reconcile, you likely omitted a distinct line item or sub-category. Re-examine the notice to confirm you aggregated ALL distinct tax, penalty, interest, and credit lines for the relevant periods and programs.
+- Do not fabricate amounts or subtract values to force a match; only ensure every complete, explicitly shown line item in each category was aggregated.
+
 OUTPUT REQUIREMENTS
 - Extract from all pages belonging to the same notice.
 - Do not combine unrelated notices or different employers into one result.
@@ -262,7 +442,8 @@ OUTPUT REQUIREMENTS
 - Do not extract contribution percentages, taxable wage limits, login identifiers, or access codes into monetary fields.
 - Do not add rates, other amounts, overall totals, confidence scores, evidence, or any additional fields.
 - Include all 16 required keys exactly as specified.
-- Do NOT include notice_manager or total_amount — those are computed server-side.
+- classification and notice_type must form ONE valid pair from the Notice Mapping data.
+- Do NOT include notice_manager or total_amount — those are computed server-side. After the LLM selects Classification + Notice Type, the server performs an exact Notice Mapping lookup and adds the matching Notice Manager to the final response.
 - Return valid JSON only, without Markdown, comments, or explanation.
 
 If any required field except country is not clearly supported by the document, return null.

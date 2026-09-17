@@ -1,7 +1,7 @@
 import csv
 import os
 
-EXCEL_PATH = r"c:\Users\c1755\Notice-extraction\Notice_Mapping_Extracted_IT Team(Notice Mapping).csv"
+EXCEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Notice_Mapping_Extracted_IT Team(Notice Mapping).csv")
 
 def load_mappings():
     """

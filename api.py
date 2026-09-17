@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -12,6 +12,11 @@ warnings.filterwarnings("ignore", category=UserWarning, module="paddle.*")
 
 from main import run_pipeline
 from src.layout_service import LayoutConfig
+
+try:
+    from database.poc_db import log_universal as _log_uni
+except ImportError:
+    _log_uni = None
 
 load_dotenv()
 
@@ -27,9 +32,11 @@ app.add_middleware(
 )
 
 @app.post("/api/extract")
-async def extract_notice(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def extract_notice(request: Request, file: UploadFile = File(...)) -> Dict[str, Any]:
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
+
+    processed_by = request.headers.get("X-Processed-By") or "SYSTEM"
 
     # Create a temporary directory for processing
     temp_dir = Path("temp_uploads")
@@ -41,6 +48,9 @@ async def extract_notice(file: UploadFile = File(...)) -> Dict[str, Any]:
         # Save the uploaded file temporarily
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+
+        if _log_uni:
+            _log_uni("notice-extraction", "extract", file.filename, "STARTED", "Processing Notice", processed_by=processed_by)
 
         # Configure default layout
         layout_config = LayoutConfig()
@@ -59,6 +69,8 @@ async def extract_notice(file: UploadFile = File(...)) -> Dict[str, Any]:
         )
 
         if not ai_result:
+            if _log_uni:
+                _log_uni("notice-extraction", "extract", file.filename, "FAILED", "AI extraction returned no result.", processed_by=processed_by)
             raise HTTPException(status_code=500, detail="AI extraction failed or returned no result.")
 
         # Format the response
@@ -73,9 +85,14 @@ async def extract_notice(file: UploadFile = File(...)) -> Dict[str, Any]:
             "extracted_data": ai_result.to_strict_dict(),
         }
 
+        if _log_uni:
+            _log_uni("notice-extraction", "extract", file.filename, "SUCCESS", f"Extracted {doc_result.total_pages} pages", processed_by=processed_by)
+
         return response
 
     except Exception as e:
+        if _log_uni:
+            _log_uni("notice-extraction", "extract", file.filename if file else "unknown", "FAILED", str(e), processed_by=processed_by)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         # Cleanup temporary file

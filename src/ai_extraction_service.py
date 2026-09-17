@@ -4,6 +4,12 @@ from typing import Optional
 from openai import OpenAI
 from pydantic import ValidationError
 
+try:
+    from core.universal_token_monitor import track_usage as _tm
+except ImportError:
+    _tm = None
+
+
 from src.config import get_openai_api_key
 from src.models import NoticeExtractionResult
 from src.excel_mapping import load_mappings
@@ -519,6 +525,15 @@ class AIExtractionService:
 
             raw_content = response.choices[0].message.content
             logger.debug("Raw OpenAI Response:\n%s", raw_content)
+
+            if _tm and response.usage:
+                _tm(
+                    response_usage=response.usage,
+                    model=self.model,
+                    poc_name="notice-extraction",
+                    file_name="Notice Document",
+                    step_name="extract"
+                )
 
             # Parse JSON content
             parsed_data = json.loads(raw_content)

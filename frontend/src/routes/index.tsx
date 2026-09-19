@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Check,
   Download,
+  FileSpreadsheet,
   FileText,
   Moon,
   Sun,
@@ -154,6 +155,35 @@ function Index() {
     link.download = `${result.document.file_name.replace(/\.[^.]+$/, "")}_extracted.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadExcel = async () => {
+    if (!isComplete || !result) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/export-excel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          extracted_data: result.extracted_data,
+          file_name: result.document.file_name,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+        throw new Error(errorData.detail ?? `Server error: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${result.document.file_name.replace(/\.[^.]+$/, "")}_extraction_tracker.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export Excel");
+    }
   };
 
   const stageState = (stage: number) => {
@@ -353,14 +383,23 @@ function Index() {
                   </div>
                 )
               )}
-              <Button
-                variant="outline"
-                className="mt-5 w-full"
-                disabled={!isComplete}
-                onClick={downloadOutput}
-              >
-                <Download /> Download output
-              </Button>
+              <div className="mt-5 flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={!isComplete}
+                  onClick={downloadOutput}
+                >
+                  <Download /> Download JSON
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={!isComplete}
+                  onClick={downloadExcel}
+                >
+                  <FileSpreadsheet /> Download Excel
+                </Button>
+              </div>
             </div>
           </section>
 

@@ -24,6 +24,8 @@ from src.ocr_service import DocumentOCRResult, OCRService, PageOCRResult
 from src.output_service import OutputService
 from src.pdf_service import convert_pdf_to_images
 
+logger = logging.getLogger("pipeline")
+
 
 def configure_logging(verbose: bool = False) -> None:
     """Configures application-wide logging format and level."""
@@ -32,7 +34,16 @@ def configure_logging(verbose: bool = False) -> None:
         level=log_level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
+        force=True,
     )
+    logging.getLogger().setLevel(log_level)
+    # Suppress verbose third-party loggers
+    logging.getLogger("ppocr").setLevel(logging.ERROR)
+    logging.getLogger("paddle").setLevel(logging.ERROR)
+    logging.getLogger("pdfminer").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def load_image_file(image_path: Path) -> List[Tuple[int, np.ndarray]]:
@@ -81,6 +92,9 @@ def run_pipeline(
     Returns:
         Tuple[DocumentOCRResult, Optional[NoticeExtractionResult]]: Complete OCR results and extracted fields.
     """
+    configure_logging()
+    logger.info("Starting extraction pipeline for: %s", file_path)
+
     validated_path = validate_input_file(file_path)
     base_name = validated_path.stem
 
@@ -148,6 +162,10 @@ def run_pipeline(
             if ai_result:
                 output_service.display_extracted_fields(ai_result, base_name=base_name)
                 output_service.save_extracted_fields(ai_result, base_name=base_name)
+                # Also generate the Excel extraction tracker
+                excel_path = output_service.save_excel(ai_result, base_name=base_name)
+                if excel_path:
+                    print(f"Saved: output/{base_name}_extraction_tracker.xlsx\n", flush=True)
             else:
                 logging.error("OpenAI field extraction returned empty or invalid result.")
 

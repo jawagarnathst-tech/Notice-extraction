@@ -40,12 +40,13 @@ class OutputService:
             result (DocumentOCRResult): Complete OCR results for the document.
             print_coordinates (bool): If True, prints X, Y, Width, and Confidence for each box.
         """
-        print(f"\nProcessing file: {result.file_name}\n")
-
-        print(f"Total Pages: {result.total_pages}")
-        print(f"Total Text Lines Detected: {result.total_lines}")
-        print(f"Average OCR Confidence: {result.average_confidence:.4f}\n")
-        print("OCR extraction completed successfully.\n")
+        logger.info("OCR finished: %s | Pages: %d | Lines: %d | Avg Confidence: %.4f",
+                    result.file_name, result.total_pages, result.total_lines, result.average_confidence)
+        print(f"\nProcessing file: {result.file_name}\n", flush=True)
+        print(f"Total Pages: {result.total_pages}", flush=True)
+        print(f"Total Text Lines Detected: {result.total_lines}", flush=True)
+        print(f"Average OCR Confidence: {result.average_confidence:.4f}\n", flush=True)
+        print("OCR extraction completed successfully.\n", flush=True)
 
     def display_extracted_fields(self, fields: NoticeExtractionResult, base_name: str) -> None:
         """
@@ -55,18 +56,20 @@ class OutputService:
             fields (NoticeExtractionResult): Validated extraction result.
             base_name (str): Document base name.
         """
-        print("Extracting required fields using OpenAI...\n")
-        print(f"Account       : {fields.account}")
-        print(f"Country       : {fields.country}")
-        print(f"Agency        : {fields.agency}")
-        print(f"Agency Type   : {fields.agency_type}")
-        print(f"Department    : {fields.department}")
-        print(f"Classification: {fields.classification}")
-        print(f"Notice Type   : {fields.notice_type}")
-        print(f"Notice Manager: {fields.notice_manager}")
-        print(f"Total Amount  : {fields.total_amount}\n")
-        print("Structured extraction completed successfully.\n")
-        print(f"Saved:\noutput/{base_name}_extracted_fields.json\n")
+        logger.info("Structured extraction completed for %s: Account='%s', Classification='%s', Amount=%s",
+                    base_name, fields.account, fields.classification, fields.total_amount)
+        print("Extracting required fields using OpenAI...\n", flush=True)
+        print(f"Account       : {fields.account}", flush=True)
+        print(f"Country       : {fields.country}", flush=True)
+        print(f"Agency        : {fields.agency}", flush=True)
+        print(f"Agency Type   : {fields.agency_type}", flush=True)
+        print(f"Department    : {fields.department}", flush=True)
+        print(f"Classification: {fields.classification}", flush=True)
+        print(f"Notice Type   : {fields.notice_type}", flush=True)
+        print(f"Notice Manager: {fields.notice_manager}", flush=True)
+        print(f"Total Amount  : {fields.total_amount}\n", flush=True)
+        print("Structured extraction completed successfully.\n", flush=True)
+        print(f"Saved:\noutput/{base_name}_extracted_fields.json\n", flush=True)
 
     def save_layout_text(self, result: DocumentOCRResult, base_name: str) -> Path:
         """
@@ -110,6 +113,37 @@ class OutputService:
             json.dump(fields.to_strict_dict(), f, indent=2, ensure_ascii=False)
 
         return out_path
+
+    def save_excel(self, fields: NoticeExtractionResult, base_name: str) -> Optional[Path]:
+        """
+        Generates a filled Excel workbook from the extraction results and saves it
+        to the output directory.
+
+        Output file: output/<base_name>_extraction_tracker.xlsx
+
+        Returns:
+            Path to the saved Excel file, or None if the template is unavailable.
+        """
+        try:
+            from src.excel_export_service import ExcelExportService
+
+            excel_service = ExcelExportService()
+            excel_bytes = excel_service.generate(
+                extracted_data=fields.to_strict_dict(),
+                file_name=base_name,
+            )
+
+            out_path = self.output_dir / f"{base_name}_extraction_tracker.xlsx"
+            out_path.write_bytes(excel_bytes)
+            logger.info("Saved Excel extraction tracker to: %s", out_path)
+            return out_path
+
+        except FileNotFoundError as e:
+            logger.warning("Excel template not found, skipping Excel export: %s", e)
+            return None
+        except Exception as e:
+            logger.error("Failed to generate Excel output: %s", e)
+            return None
 
     def save_debug_images(self, page: PageOCRResult, base_name: str) -> None:
         """Saves raw page image and OCR bounding box debug image."""

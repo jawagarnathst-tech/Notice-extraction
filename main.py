@@ -143,7 +143,7 @@ def run_pipeline(
             layout_text = layout_text_path.read_text(encoding="utf-8")
 
             ai_service = AIExtractionService(model=ai_model)
-            ai_result = ai_service.extract_fields(layout_text=layout_text)
+            ai_result = ai_service.extract_fields(layout_text=layout_text, file_name=base_name)
 
             if ai_result:
                 output_service.display_extracted_fields(ai_result, base_name=base_name)

@@ -492,7 +492,7 @@ class AIExtractionService:
         self.client = OpenAI(api_key=self.api_key)
         logger.info("Initialized OpenAI Extraction Service with model: %s", self.model)
 
-    def extract_fields(self, layout_text: str) -> Optional[NoticeExtractionResult]:
+    def extract_fields(self, layout_text: str, file_name: str = "Notice Document") -> Optional[NoticeExtractionResult]:
         """
         Sends layout-preserved OCR text to OpenAI and parses strict structured result.
 
@@ -531,7 +531,7 @@ class AIExtractionService:
                     response_usage=response.usage,
                     model=self.model,
                     poc_name="notice-extraction",
-                    file_name="Notice Document",
+                    file_name=file_name,
                     step_name="extract"
                 )
 

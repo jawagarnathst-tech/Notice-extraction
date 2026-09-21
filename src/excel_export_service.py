@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import openpyxl
+from openpyxl.styles import PatternFill
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,9 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "excel_field_config.json"
 FIELD_MAPPING_SHEET = "Field Mapping"
 NOTICE_FORM_SHEET = "Notice Form"
 TRACKER_SHEET = "Tracker"
+
+# Highlighting for populated cells
+SUCCESS_FILL = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
 
 
 class ExcelExportService:
@@ -204,6 +208,7 @@ class ExcelExportService:
 
             # Write value to the cell
             ws[write_cell] = value
+            ws[write_cell].fill = SUCCESS_FILL
             populated += 1
             logger.debug(
                 "Notice Form: %s → cell %s = %s",

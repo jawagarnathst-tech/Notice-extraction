@@ -57,7 +57,12 @@ async def extract_notice(request: Request, file: UploadFile = File(...)) -> Dict
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
-    processed_by = request.headers.get("X-Processed-By") or "SYSTEM"
+    processed_by = (
+        request.headers.get("X-User-Email")
+        or request.headers.get("x-user-email")
+        or request.headers.get("X-Processed-By")
+        or "SYSTEM"
+    )
 
     logger.info("==================================================")
     logger.info("--> [API] Received extraction request for file: %s (Processed by: %s)", file.filename, processed_by)

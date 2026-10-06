@@ -1,9 +1,20 @@
 from dataclasses import dataclass, field
 import logging
+import sys
+import time
+from pathlib import Path
 from typing import Any, List, Optional
 import cv2
 import numpy as np
 from paddleocr import PaddleOCR
+
+try:
+    import core_gpu
+except ImportError:
+    _root_dir = Path(__file__).resolve().parent.parent.parent
+    if str(_root_dir) not in sys.path:
+        sys.path.insert(0, str(_root_dir))
+    import core_gpu
 
 # Suppress verbose internal PaddleOCR output
 logging.getLogger("ppocr").setLevel(logging.ERROR)
@@ -105,20 +116,22 @@ class OCRService:
             confidence_threshold (float): Score below which lines are flagged.
         """
         self.confidence_threshold = confidence_threshold
+        gpu_engine = core_gpu.get_gpu_engine()
+        device_str = gpu_engine.get_device_string()
         logger.info(
-            "Initializing PaddleOCR (lang='%s', angle_cls=%s, CPU mode)...",
+            "Initializing PaddleOCR (lang='%s', angle_cls=%s, Hardware: %s)...",
             lang,
             use_angle_cls,
+            device_str,
         )
 
         try:
-            # Initialize PaddleOCR engine
-            self.ocr = PaddleOCR(
-                use_angle_cls=use_angle_cls,
+            # Use singleton warm PaddleOCR from core_gpu
+            self.ocr = gpu_engine.get_paddle_ocr(
                 lang=lang,
-                use_gpu=False,
+                use_angle_cls=use_angle_cls,
             )
-            logger.info("PaddleOCR engine initialized successfully.")
+            logger.info("PaddleOCR engine ready on %s.", device_str)
         except Exception as exc:
             logger.error("Failed to initialize PaddleOCR engine: %s", exc)
             raise RuntimeError(
@@ -145,8 +158,16 @@ class OCRService:
         logger.info("Processing OCR for page %d...", page_number)
 
         try:
+            t0 = time.time()
             # PaddleOCR accepts numpy arrays directly (RGB/BGR)
             raw_ocr_result = self.ocr.ocr(image, cls=True)
+            elapsed = time.time() - t0
+            core_gpu.log_ocr_audit(
+                module_name="Notice-Extraction",
+                engine_name="PaddleOCR",
+                page_idx=page_number,
+                elapsed_sec=elapsed,
+            )
         except Exception as exc:
             logger.error("Error during OCR inference on page %d: %s", page_number, exc)
             raise RuntimeError(f"OCR inference failed on page {page_number}: {exc}") from exc

@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, List, Optional
 import cv2
 import numpy as np
-from paddleocr import PaddleOCR
 
 try:
     import core_gpu
@@ -138,52 +137,22 @@ class OCRService:
                 f"Failed to initialize PaddleOCR: {exc}. Please verify PaddlePaddle installation."
             ) from exc
 
-    def process_image(
+    def _parse_ocr_result(
         self,
+        raw_ocr_result: Any,
         image: np.ndarray,
         page_number: int = 1,
         create_debug_image: bool = True,
     ) -> PageOCRResult:
-        """
-        Runs OCR on a single image array and returns structured page results.
-
-        Args:
-            image (np.ndarray): Image in RGB format.
-            page_number (int): The 1-based page number.
-            create_debug_image (bool): Whether to render bounding box annotations.
-
-        Returns:
-            PageOCRResult: The parsed OCR results for this page.
-        """
-        logger.info("Processing OCR for page %d...", page_number)
-
-        try:
-            t0 = time.time()
-            # PaddleOCR accepts numpy arrays directly (RGB/BGR)
-            raw_ocr_result = self.ocr.ocr(image, cls=True)
-            elapsed = time.time() - t0
-            core_gpu.log_ocr_audit(
-                module_name="Notice-Extraction",
-                engine_name="PaddleOCR",
-                page_idx=page_number,
-                elapsed_sec=elapsed,
-            )
-        except Exception as exc:
-            logger.error("Error during OCR inference on page %d: %s", page_number, exc)
-            raise RuntimeError(f"OCR inference failed on page {page_number}: {exc}") from exc
-
+        """Parses raw PaddleOCR result structure into a PageOCRResult."""
         parsed_lines: List[LineOCRResult] = []
 
-        # PaddleOCR returns a list of results (one per image input)
-        # E.g. raw_ocr_result = [ [ [box, (text, conf)], [box, (text, conf)] ] ]
-        # If no text is detected, it may return [None] or [] or None
         if raw_ocr_result and len(raw_ocr_result) > 0 and raw_ocr_result[0] is not None:
             for item in raw_ocr_result[0]:
                 try:
                     box_points = item[0]  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
                     text, conf = item[1]  # (text_str, confidence_float)
 
-                    # Ensure box points are standard float numbers
                     cleaned_box = [[float(coord) for coord in pt] for pt in box_points]
                     confidence_float = float(conf)
                     is_low = confidence_float < self.confidence_threshold
@@ -215,6 +184,92 @@ class OCRService:
             raw_image=image,
             debug_image=debug_img,
         )
+
+    def process_image(
+        self,
+        image: np.ndarray,
+        page_number: int = 1,
+        create_debug_image: bool = True,
+    ) -> PageOCRResult:
+        """
+        Runs OCR on a single image array and returns structured page results.
+
+        Args:
+            image (np.ndarray): Image in RGB format.
+            page_number (int): The 1-based page number.
+            create_debug_image (bool): Whether to render bounding box annotations.
+
+        Returns:
+            PageOCRResult: The parsed OCR results for this page.
+        """
+        logger.info("Processing OCR for page %d...", page_number)
+
+        try:
+            t0 = time.time()
+            raw_ocr_result = self.ocr.ocr(image, cls=True)
+            elapsed = time.time() - t0
+            core_gpu.log_ocr_audit(
+                module_name="Notice-Extraction",
+                engine_name="PaddleOCR",
+                page_idx=page_number,
+                elapsed_sec=elapsed,
+            )
+        except Exception as exc:
+            logger.error("Error during OCR inference on page %d: %s", page_number, exc)
+            raise RuntimeError(f"OCR inference failed on page {page_number}: {exc}") from exc
+
+        return self._parse_ocr_result(raw_ocr_result, image, page_number=page_number, create_debug_image=create_debug_image)
+
+    def process_pages(
+        self,
+        page_images: List[Any],
+        create_debug_image: bool = True,
+    ) -> List[PageOCRResult]:
+        """
+        Process multiple page images in parallel using GPU workers when available.
+
+        Args:
+            page_images (List[Tuple[int, np.ndarray]]): List of (page_number, img_array) tuples.
+            create_debug_image (bool): Whether to generate debug overlays.
+
+        Returns:
+            List[PageOCRResult]: List of parsed results per page.
+        """
+        if not page_images:
+            return []
+
+        # Check if underlying engine supports batch OCR
+        if hasattr(self.ocr, "ocr_batch"):
+            try:
+                t0 = time.time()
+                images = [img for _, img in page_images]
+                batch_results = self.ocr.ocr_batch(images, cls=True)
+                elapsed = time.time() - t0
+                core_gpu.log_ocr_audit(
+                    module_name="Notice-Extraction",
+                    engine_name="PaddleOCR (Batch)",
+                    total_pages=len(page_images),
+                    elapsed_sec=elapsed,
+                )
+                results: List[PageOCRResult] = []
+                for idx, (page_num, img) in enumerate(page_images):
+                    raw_res = batch_results[idx] if idx < len(batch_results) else None
+                    results.append(
+                        self._parse_ocr_result(
+                            raw_ocr_result=raw_res,
+                            image=img,
+                            page_number=page_num,
+                            create_debug_image=create_debug_image,
+                        )
+                    )
+                return results
+            except Exception as exc:
+                logger.warning("Batch OCR processing failed, falling back to per-page: %s", exc)
+
+        return [
+            self.process_image(img, page_number=page_num, create_debug_image=create_debug_image)
+            for page_num, img in page_images
+        ]
 
     def _render_debug_overlay(
         self,

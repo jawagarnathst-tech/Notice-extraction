@@ -111,20 +111,12 @@ def run_pipeline(
 
     ocr_service = OCRService(lang=lang, confidence_threshold=conf_threshold)
 
-    pages_results: List[PageOCRResult] = []
-    total_lines = 0
-    total_conf_sum = 0.0
-
-    for page_num, img_array in page_images:
-        page_result = ocr_service.process_image(
-            image=img_array,
-            page_number=page_num,
-            create_debug_image=save_debug,
-        )
-        pages_results.append(page_result)
-        total_lines += page_result.total_lines
-        total_conf_sum += sum(line.confidence for line in page_result.lines)
-
+    pages_results = ocr_service.process_pages(
+        page_images=page_images,
+        create_debug_image=save_debug,
+    )
+    total_lines = sum(p.total_lines for p in pages_results)
+    total_conf_sum = sum(sum(line.confidence for line in p.lines) for p in pages_results)
     avg_conf = (total_conf_sum / total_lines) if total_lines > 0 else 0.0
 
     doc_result = DocumentOCRResult(
